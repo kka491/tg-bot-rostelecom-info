@@ -1,11 +1,10 @@
-import os
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.types import ReplyKeyboardRemove
 from aiogram.filters import Command
 
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = "8639759591:AAE-ZwvEAgMd8GWaUYy0LRo4dn2G0hsLvLk"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
