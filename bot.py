@@ -1,8 +1,9 @@
 import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.types import ReplyKeyboardRemove
 from aiogram.filters import Command
+from keep_alive import keep_alive
+keep_alive()
 
 TOKEN = "8639759591:AAE-ZwvEAgMd8GWaUYy0LRo4dn2G0hsLvLk"
 
@@ -110,15 +111,17 @@ user_states = {}
 async def send_question(message: Message, user_id: int):
     state = user_states[user_id]
     q = questions[state["current"]]
+    state["answered"] = False
 
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=option)] for option in q["options"]
-        ],
-        resize_keyboard=True
+    await message.answer(
+        q["question"],
+        reply_markup=test_keyboard(q["options"])
     )
 
-    await message.answer(q["question"], reply_markup=keyboard)
+def finish_test(user_id: int):
+    result = user_states[user_id]["score"]
+    del user_states[user_id]
+    return result
 
 
 # Кнопки
@@ -129,6 +132,14 @@ main_keyboard = ReplyKeyboardMarkup(
     ],
     resize_keyboard=True
 )
+
+def test_keyboard(options):
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=option)] for option in options
+        ] + [[KeyboardButton(text="Завершить тест")]],
+        resize_keyboard=True
+    )
 
 @dp.message(Command("start"))
 async def start(message: Message):
@@ -148,7 +159,8 @@ async def about_project(message: Message):
 async def start_test(message: Message):
     user_states[message.from_user.id] = {
         "current": 0,
-        "score": 0
+        "score": 0,
+        "answered": False
     }
     await send_question(message, message.from_user.id)
 
@@ -160,7 +172,22 @@ async def handle_answer(message: Message):
         return
 
     state = user_states[user_id]
+
+    if message.text == "Завершить тест":
+        result = finish_test(user_id)
+        await message.answer(
+            f"⏹ Тест завершён досрочно.\n"
+            f"Правильных ответов: {result} из {len(questions)}\n\n"
+            f"Больше тестов по разным предметам для разных классов можно пройти на официальном сайте https://lc.rt.ru/myeducation",
+            reply_markup=main_keyboard
+        )
+        return
+
+    if state["answered"]:
+        return
+
     current_q = questions[state["current"]]
+    state["answered"] = True
 
     if message.text == current_q["options"][current_q["correct"]]:
         state["score"] += 1
@@ -170,12 +197,10 @@ async def handle_answer(message: Message):
     if state["current"] < len(questions):
         await send_question(message, user_id)
     else:
-        result = state["score"]
-        del user_states[user_id]
-
+        result = finish_test(user_id)
         await message.answer(
             f"✅ Тест завершён!\n"
-            f"Правильных ответов: {result} из {len(questions)}"
+            f"Правильных ответов: {result} из {len(questions)}\n\n"
             f"Больше тестов по разным предметам для разных классов можно пройти на официальном сайте https://lc.rt.ru/myeducation",
             reply_markup=main_keyboard
         )
